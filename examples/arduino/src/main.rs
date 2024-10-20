@@ -4,7 +4,8 @@
 use panic_halt as _;
 
 use arduino_hal::{spi::Settings, Delay, Spi};
-use embedded_hal::can::{ExtendedId, Frame, Id};
+use embedded_can::{ExtendedId, Frame, Id};
+use embedded_hal_bus::spi::ExclusiveDevice;
 use mcp2515::{error::Error, frame::CanFrame, regs::OpMode, CanSpeed, McpSpeed, MCP2515};
 
 #[arduino_hal::entry]
@@ -29,7 +30,8 @@ fn main() -> ! {
             mode: embedded_hal::spi::MODE_0,
         },
     );
-    let mut can = MCP2515::new(spi, cs);
+    let spi_device = ExclusiveDevice::new(spi, cs, Delay::new()).unwrap();
+    let mut can = MCP2515::new(spi_device);
     can.init(
         &mut delay,
         mcp2515::Settings {

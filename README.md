@@ -36,15 +36,12 @@ Import the relevant HAL crate for your platform. For this example I'm using
 #![no_std]
 #![no_main]
 
-use arduino_hal::{spi::Settings, Delay, Spi};
-use core::fmt::Write;
-use embedded_hal::can::{ExtendedId, Frame, Id};
-use mcp2515::{error::Error, frame::CanFrame, regs::OpMode, CanSpeed, McpSpeed, MCP2515};
+use panic_halt as _;
 
-#[panic_handler]
-fn panic(_: &core::panic::PanicInfo) -> ! {
-    loop {}
-}
+use arduino_hal::{spi::Settings, Delay, Spi};
+use embedded_can::{ExtendedId, Frame, Id};
+use embedded_hal_bus::spi::ExclusiveDevice;
+use mcp2515::{error::Error, frame::CanFrame, regs::OpMode, CanSpeed, McpSpeed, MCP2515};
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -52,21 +49,24 @@ fn main() -> ! {
     let pins = arduino_hal::pins!(dp);
 
     let mut delay = Delay::new();
-
     let mut serial = arduino_hal::default_serial!(dp, pins, 115200);
+
+    ufmt::uwriteln!(&mut serial, "Hello, world!").unwrap();
+
     let (spi, cs) = Spi::new(
         dp.SPI,
-        pins.d52.into_output(),
-        pins.d51.into_output(),
-        pins.d50.into_pull_up_input(),
-        pins.d53.into_output(),
+        pins.d13.into_output(),
+        pins.d11.into_output(),
+        pins.d12.into_pull_up_input(),
+        pins.d10.into_output(),
         Settings {
             data_order: arduino_hal::spi::DataOrder::MostSignificantFirst,
             clock: arduino_hal::spi::SerialClockRate::OscfOver128,
             mode: embedded_hal::spi::MODE_0,
         },
     );
-    let mut can = MCP2515::new(spi, cs);
+    let spi_device = ExclusiveDevice::new(spi, cs, Delay::new()).unwrap();
+    let mut can = MCP2515::new(spi_device);
     can.init(
         &mut delay,
         mcp2515::Settings {
@@ -74,7 +74,7 @@ fn main() -> ! {
             can_speed: CanSpeed::Kbps100, // Many options supported.
             mcp_speed: McpSpeed::MHz8,    // Currently 16MHz and 8MHz chips are supported.
             clkout_en: false,
-        }
+        },
     )
     .unwrap();
 
@@ -86,14 +86,12 @@ fn main() -> ! {
         )
         .unwrap();
         can.send_message(frame).unwrap();
-        writeln!(&mut serial, "Sent message!").unwrap();
+        ufmt::uwriteln!(&mut serial, "Sent message!").unwrap();
 
         // Read the message back (we are in loopback mode)
         match can.read_message() {
-            Ok(frame) => {
-                writeln!(&mut serial, "Received frame {:?}", frame).unwrap();
-            }
-            Err(Error::NoMessage) => writeln!(&mut serial, "No message to read!").unwrap(),
+            Ok(frame) => ufmt::uwriteln!(&mut serial, "Received frame {:?}", frame).unwrap(),
+            Err(Error::NoMessage) => ufmt::uwriteln!(&mut serial, "No message to read!").unwrap(),
             Err(_) => panic!("Oh no!"),
         }
 

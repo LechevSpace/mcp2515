@@ -2,10 +2,12 @@
 #![no_main]
 
 use defmt_rtt as _;
+use embedded_hal::delay::DelayNs;
+use embedded_hal_bus::spi::ExclusiveDevice;
 use panic_probe as _;
-use rp_pico as bsp;
+use rp_pico::{self as bsp, hal::Timer};
 
-use embedded_hal::can::{ExtendedId, Frame, Id};
+use embedded_can::{ExtendedId, Frame, Id};
 use mcp2515::{error::Error, frame::CanFrame, regs::OpMode, CanSpeed, McpSpeed, Settings, MCP2515};
 
 use defmt::{panic, *};
@@ -46,7 +48,7 @@ fn main() -> ! {
     .ok()
     .unwrap();
 
-    let mut delay = cortex_m::delay::Delay::new(core.SYST, clocks.system_clock.freq().to_Hz());
+    let mut delay = Timer::new(pac.TIMER, &mut pac.RESETS, &clocks);
 
     let pins = bsp::Pins::new(
         pac.IO_BANK0,
@@ -55,19 +57,20 @@ fn main() -> ! {
         &mut pac.RESETS,
     );
 
-    let _spi_sclk = pins.gpio2.into_mode::<FunctionSpi>();
-    let _spi_mosi = pins.gpio3.into_mode::<FunctionSpi>();
-    let _spi_miso = pins.gpio4.into_mode::<FunctionSpi>();
+    let spi_sclk = pins.gpio2.into_function::<FunctionSpi>();
+    let spi_mosi = pins.gpio3.into_function::<FunctionSpi>();
+    let spi_miso = pins.gpio4.into_function::<FunctionSpi>();
     let spi_cs = pins.gpio5.into_push_pull_output();
 
-    let spi = Spi::<_, _, 8>::new(pac.SPI0).init(
+    let spi = Spi::<_, _, _, 8>::new(pac.SPI0, (spi_mosi, spi_miso, spi_sclk)).init(
         &mut pac.RESETS,
         clocks.peripheral_clock.freq(),
         200_000.Hz(),
         &embedded_hal::spi::MODE_0,
     );
+    let spi_device = ExclusiveDevice::new_no_delay(spi, spi_cs);
 
-    let mut can = MCP2515::new(spi, spi_cs);
+    let mut can = MCP2515::new(spi_device);
     can.init(
         &mut delay,
         Settings {
