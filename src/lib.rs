@@ -11,7 +11,9 @@ pub mod stat;
 use core::fmt::Debug;
 
 use buffer::{RxBuf, RxBufIdent, TxBuf};
-use embedded_can::{blocking::Can, ExtendedId, Frame, Id, StandardId};
+#[cfg(not(feature = "async"))]
+use embedded_can::blocking::Can;
+use embedded_can::{ExtendedId, Frame, Id, StandardId};
 use embedded_hal::{delay::DelayNs, spi::Operation};
 
 #[cfg(not(feature = "async"))]
@@ -394,7 +396,8 @@ where
     ///
     /// * `clken` - Whether the `CLKOUT` pin should be enabled or disabled.
     async fn set_clken(&mut self, clken: bool) -> Result<(), SPI::Error> {
-        self.modify_register(CanCtrl::new().with_clken(clken), CanCtrl::MASK_CLKEN).await
+        self.modify_register(CanCtrl::new().with_clken(clken), CanCtrl::MASK_CLKEN)
+            .await
     }
 
     /// Sends a CAN frame over the CAN bus via any available Tx buffer.
@@ -468,7 +471,6 @@ where
         self.read_register_addr(&regs, &mut ret).await?;
         let rxbuf = RxBufIdent::from_bytes(ret);
 
-
         let frame = {
             let id = if rxbuf.ide() {
                 let id = rxbuf.eid() | ((rxbuf.sid() as u32) << 18);
@@ -486,7 +488,8 @@ where
                 dlc,
                 data: [0; 8],
             };
-            self.read_register_seq(buf.data(), &mut frame.data[..(dlc as usize)]).await?;
+            self.read_register_seq(buf.data(), &mut frame.data[..(dlc as usize)])
+                .await?;
             Ok(frame)
         }?;
         // Read data and clear Rx interrupt flag
@@ -539,7 +542,8 @@ where
     /// Reads the status register.
     pub async fn read_status(&mut self) -> Result<Status, SPI::Error> {
         let mut data = [Instruction::ReadStatus as u8, 0];
-        self.transfer(&mut data).await
+        self.transfer(&mut data)
+            .await
             .map(|b| [b])
             .map(Status::from_bytes)
     }
@@ -714,7 +718,9 @@ where
     }
 }
 
-#[maybe_async::sync_impl]
+// #[maybe_async::sync_impl]
+#[cfg(not(feature = "async"))]
+
 impl<SPI> Can for MCP2515<SPI>
 where
     SPI: SpiDevice<u8>,
@@ -731,4 +737,20 @@ where
     fn receive(&mut self) -> Result<Self::Frame, SPI::Error> {
         self.read_message()
     }
+}
+
+#[cfg(feature = "async")]
+pub trait Can {
+    /// Associated frame type.
+    type Frame: embedded_can::Frame;
+
+    /// Associated error type.
+    type Error: embedded_can::Error;
+
+    /// Puts a frame in the transmit buffer. Waits until space is available in
+    /// the transmit buffer.
+    async fn transmit(&mut self, frame: &Self::Frame) -> Result<(), Self::Error>;
+
+    /// Waits until a frame was received or an error occured.
+    async fn receive(&mut self) -> Result<Self::Frame, Self::Error>;
 }
