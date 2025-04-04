@@ -39,10 +39,10 @@ enum Instruction {
     // LoadTX0 = 0x40,
     // LoadTX1 = 0x42,
     // LoadTX2 = 0x44,
-    // RTSTX0 = 0x81,
-    // RTSTX1 = 0x82,
-    // RTSTX2 = 0x84,
-    // RTSAll = 0x87,
+    RTSTX0 = 0x81,
+    RTSTX1 = 0x82,
+    RTSTX2 = 0x84,
+    RTSAll = 0x87,
     // ReadRX0 = 0x90,
     // ReadRX1 = 0x94,
     ReadStatus = 0xA0,
@@ -425,6 +425,9 @@ where
             &TxbCtrl::new().with_txreq(true).into_bytes(),
         )?;
 
+        // Sending the SPI RTS command
+        self.request_to_send(Some(buf))?;
+
         // Check for any errors.
         let ctrl = self.read_txb_ctrl(&buf)?;
         if ctrl.abtf() || ctrl.mloa() || ctrl.txerr() {
@@ -499,6 +502,22 @@ where
         // Sleep for 5ms after reset - if the device is in sleep mode it won't respond
         // immediately
         delay.delay_ms(5);
+
+        Ok(())
+    }
+
+    /// Request-to-send of a specific tx buffer or all if no tx buffer is provided
+    fn request_to_send(&mut self, tx_buf: Option<TxBuf>) -> Result<(), SPI::Error> {
+        let rts_buf = tx_buf
+            .map(|x| match x {
+                TxBuf::B0 => Instruction::RTSTX0,
+                TxBuf::B1 => Instruction::RTSTX1,
+                TxBuf::B2 => Instruction::RTSTX2,
+            })
+            .unwrap_or(Instruction::RTSAll);
+
+        let mut data = [rts_buf as u8, 0];
+        self.transfer(&mut data)?;
 
         Ok(())
     }
