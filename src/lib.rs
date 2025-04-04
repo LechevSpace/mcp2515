@@ -381,6 +381,15 @@ where
         self.modify_register(CanCtrl::new().with_clken(clken), CanCtrl::MASK_CLKEN)
     }
 
+    /// Enables/disables One Shot mode of the MCP2515.
+    ///
+    /// # Parameters
+    ///
+    /// * `osm` - Whether the One-shot Mode should be enabled
+    pub fn set_one_shot_mode(&mut self, osm: bool) -> Result<(), SPI::Error> {
+        self.modify_register(CanCtrl::new().with_osm(osm), CanCtrl::MASK_OSM)
+    }
+
     /// Sends a CAN frame over the CAN bus via any available Tx buffer.
     ///
     /// # Parameters
