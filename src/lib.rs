@@ -410,8 +410,8 @@ where
     /// # Parameters
     ///
     /// * `osm` - Whether the One-shot Mode should be enabled
-    pub fn set_one_shot_mode(&mut self, osm: bool) -> Result<(), SPI::Error> {
-        self.modify_register(CanCtrl::new().with_osm(osm), CanCtrl::MASK_OSM)
+    pub async fn set_one_shot_mode(&mut self, osm: bool) -> Result<(), SPI::Error> {
+        self.modify_register(CanCtrl::new().with_osm(osm), CanCtrl::MASK_OSM).await
     }
 
     /// Sends a CAN frame over the CAN bus via any available Tx buffer.
