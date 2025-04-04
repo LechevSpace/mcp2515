@@ -317,7 +317,12 @@ where
         let status: CanStat = self.read_register()?;
 
         // If the device is currently in sleep mode, we need to wake it
-        if status.opmod() == OpMode::Sleep && mode != OpMode::Sleep {
+        if status
+            .opmod_or_err()
+            .map_err(|_invalid| Error::InvalidRegisterValue)?
+            == OpMode::Sleep
+            && mode != OpMode::Sleep
+        {
             // Ensure wake interrupt is enabled
             let caninte: CanInte = self.read_register()?;
             let int_enabled = caninte.wakie();
