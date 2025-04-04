@@ -435,6 +435,20 @@ where
         buf: TxBuf,
         frame: CanFrame,
     ) -> Result<(), SPI::Error> {
+        // In order to initiate message transmission, the TXREQ
+        // bit (TXBnCTRL[3]) must be set for each buffer to be
+        // transmitted. This can be accomplished by:
+        // 1. Writing to the register via the SPI write command
+        // 2. Sending the SPI RTS command
+        // 3. Setting the TXnRTS pin low for the particular
+        // transmit buffer(s) that are to be transmitted
+        //
+        // If transmission is initiated via the SPI interface, the
+        // TXREQ bit can be set at the same time as the TXPx
+        // priority bits.
+        // When TXREQ is set, the ABTF, MLOA and TXERR bits
+        // (TXBnCTRL[5:4]) will be cleared automatically.
+
         // Write control registers.
         let txbuf = TxBufIdent::from_frame(&frame);
         self.write_register_addr(&buf.registers(), &txbuf.into_bytes())
@@ -452,7 +466,7 @@ where
         .await?;
 
         // Sending the SPI RTS command
-        self.request_to_send(Some(buf))?;
+        self.request_to_send(Some(buf)).await?;
 
         // Check for any errors.
         let ctrl = self.read_txb_ctrl(&buf).await?;
@@ -507,7 +521,8 @@ where
             };
             self.read_register_seq(buf.data(), &mut frame.data[..(dlc as usize)])
                 .await?;
-            Ok(frame)
+
+            Result::<_, SPI::Error>::Ok(frame)
         }?;
         // Read data and clear Rx interrupt flag
         // let frame = rxbuf
@@ -540,7 +555,7 @@ where
     }
 
     /// Read the `CTRL` register of a Tx buffer.
-    async fn read_txb_ctrl(&mut self, buffer: &TxBuf) -> Result<TxbCtrl, SPI::Error> {
+    pub async fn read_txb_ctrl(&mut self, buffer: &TxBuf) -> Result<TxbCtrl, SPI::Error> {
         let mut buf = [0u8; 1];
         self.read_register_addr(&[buffer.ctrl()], &mut buf).await?;
         Ok(TxbCtrl::from_bytes(buf))
@@ -557,7 +572,7 @@ where
     }
 
     /// Request-to-send of a specific tx buffer or all if no tx buffer is provided
-    fn request_to_send(&mut self, tx_buf: Option<TxBuf>) -> Result<(), SPI::Error> {
+    pub async fn request_to_send(&mut self, tx_buf: Option<TxBuf>) -> Result<(), SPI::Error> {
         let rts_buf = tx_buf
             .map(|x| match x {
                 TxBuf::B0 => Instruction::RTSTX0,
@@ -567,9 +582,8 @@ where
             .unwrap_or(Instruction::RTSAll);
 
         let mut data = [rts_buf as u8, 0];
-        self.transfer(&mut data)?;
 
-        Ok(())
+        self.transfer(&mut data).await.map(drop)
     }
 
     /// Reads the status register.
@@ -751,9 +765,7 @@ where
     }
 }
 
-// #[maybe_async::sync_impl]
 #[cfg(not(feature = "async"))]
-
 impl<SPI> Can for MCP2515<SPI>
 where
     SPI: SpiDevice<u8>,
