@@ -1,17 +1,22 @@
 use core::fmt::Debug;
 
-use embedded_can::{ExtendedId, Frame, Id, StandardId};
+
+use embedded_can::{Frame, Id};
 use modular_bitfield::prelude::*;
 
+#[cfg(feature = "blocking")]
+use embedded_can::{ExtendedId, StandardId};
+#[cfg(feature = "blocking")]
+use crate::error::{Error, Result};
+
 use crate::{
-    error::{Error, Result},
     frame::CanFrame,
     regs::Register,
 };
 
 /// Tx buffer identification register.
 #[bitfield]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, BitfieldSpecifier)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Specifier)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[cfg_attr(feature = "ufmt", derive(ufmt::derive::uDebug))]
 pub struct TxBufIdent {
@@ -94,7 +99,7 @@ impl TxBuf {
 
 /// Rx buffer identification register.
 #[bitfield]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, BitfieldSpecifier)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Specifier)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[cfg_attr(feature = "ufmt", derive(ufmt::derive::uDebug))]
 pub struct RxBufIdent {

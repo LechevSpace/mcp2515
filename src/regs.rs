@@ -37,6 +37,8 @@ pub enum Register {
     RXF5EID0 = 0x1B,
     TEC = 0x1C,
     REC = 0x1D,
+    XX = 0x1E,
+    XY = 0x1F,
     RXM0SIDH = 0x20,
     RXM0SIDL = 0x21,
     RXM0EID8 = 0x22,
@@ -314,7 +316,7 @@ impl TxbCtrl {
 ///////////////////
 
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, BitfieldSpecifier)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Specifier)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[cfg_attr(feature = "ufmt", derive(ufmt::derive::uDebug))]
 #[bits = 2]
@@ -326,7 +328,7 @@ pub enum TxBufPriority {
 }
 
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, BitfieldSpecifier)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Specifier)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[cfg_attr(feature = "ufmt", derive(ufmt::derive::uDebug))]
 #[bits = 3]
@@ -346,7 +348,7 @@ pub enum FilterHit {
 }
 
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, BitfieldSpecifier)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Specifier)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[cfg_attr(feature = "ufmt", derive(ufmt::derive::uDebug))]
 #[bits = 2]
@@ -361,7 +363,7 @@ pub enum RecvBufOpMode {
 }
 
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, BitfieldSpecifier)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Specifier)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[cfg_attr(feature = "ufmt", derive(ufmt::derive::uDebug))]
 #[bits = 2]
@@ -373,7 +375,7 @@ pub enum SyncJumpWidth {
 }
 
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, BitfieldSpecifier)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Specifier)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[cfg_attr(feature = "ufmt", derive(ufmt::derive::uDebug))]
 #[bits = 3]
@@ -386,7 +388,7 @@ pub enum OpMode {
 }
 
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, BitfieldSpecifier)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Specifier)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[cfg_attr(feature = "ufmt", derive(ufmt::derive::uDebug))]
 #[bits = 2]
@@ -398,7 +400,7 @@ pub enum ClkPre {
 }
 
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, BitfieldSpecifier)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Specifier)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[cfg_attr(feature = "ufmt", derive(ufmt::derive::uDebug))]
 #[bits = 3]
@@ -414,16 +416,81 @@ pub enum IntFlagCode {
 }
 
 #[bitfield]
+#[derive(Specifier, Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[cfg_attr(feature = "ufmt", derive(ufmt::derive::uDebug))]
+pub struct Tec(pub u8);
+
+#[bitfield(bits = 8)]
+#[derive(Specifier, Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "ufmt", derive(ufmt::derive::uDebug))]
+/// ERROR FLAG REGISTER (ADDRESS: 0x2D)
+pub struct Eflg {
+    /// bit 0 EWARN: Error Warning Flag bit
+    /// Sets when TEC or REC is equal to or greater than 96 (TXWAR or RXWAR = 1).
+    /// Resets when both REC and TEC are less than 96.
+    pub ewarn: bool,
+    /// bit 1 RXWAR: Receive Error Warning Flag bit
+    /// Sets when REC is equal to or greater than 96. Resets when REC is less than 96.
+    pub rxwar: bool,
+    /// bit 2 TXWAR: Transmit Error Warning Flag bit
+    /// Sets when TEC is equal to or greater than 96. Resets when TEC is less than 96.
+    pub txwar: bool,
+    /// bit 3 RXEP: Receive Error-Passive Flag bit
+    /// Sets when REC is equal to or greater than 128. Resets when REC is less than 128.
+    pub rxep: bool,
+    /// bit 4 TXEP: Transmit Error-Passive Flag bit
+    /// Sets when TEC is equal to or greater than 128. Resets when TEC is less than 128.
+    pub txep: bool,
+    /// bit 5 TXBO: Bus-Off Error Flag bit
+    /// Sets when TEC reaches 255. Resets after a successful bus recovery sequence.
+    pub txbo: bool,
+    /// bit 6 RX0OVR: Receive Buffer 0 Overflow Flag bit
+    /// Sets when a valid message is received for RXB0 and RX0IF (CANINTF[0]) = 1. Must be reset by MCU.
+    pub rx0ovr: bool,
+    /// bit 7 RX1OVR: Receive Buffer 1 Overflow Flag bit
+    /// Sets when a valid message is received for RXB1 and RX1IF (CANINTF[1]) = 1. Must be reset by MCU.
+    pub rx1ovr: bool,
+}
+
+#[cfg(feature = "defmt")]
+impl defmt::Format for Eflg {
+    fn format(&self, fmt: defmt::Formatter) {
+        // format the bitfields of the register as struct fields
+        defmt::write!(
+           fmt,
+        //    "Eflg {{ RX1OVR: {0=7..8}, RX0OVR {0=6..7}, TXBO: {0=5..6}, TXEP: {0=4..5}, RXEP: {0=3..4}, TXWAR: {0=2..3}, RXWAR: {0=1..2}, EWARN: {0=0..1} }}",
+           "Eflg {{ RX1OVR: {}, RX0OVR {}, TXBO: {}, TXEP: {}, RXEP: {}, TXWAR: {}, RXWAR: {}, EWARN: {} }}",
+           self.rx1ovr(),
+           self.rx0ovr(),
+           self.txbo(),
+           self.txep(),
+           self.rxep(),
+           self.txwar(),
+           self.rxwar(),
+           self.ewarn(),
+        )
+    }
+}
+
+#[bitfield(bytes = 18)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[cfg_attr(feature = "ufmt", derive(ufmt::derive::uDebug))]
-pub struct Tec(u8);
+/// Starts at address TEC and finishes after EFLG
+pub struct Status {
+    pub tec: Tec,
+    pub rec: Rec,
+    #[skip]
+    __: B120,
+    pub eflg: Eflg,
+}
 
 #[bitfield]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Specifier, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[cfg_attr(feature = "ufmt", derive(ufmt::derive::uDebug))]
-pub struct Rec(u8);
+pub struct Rec(pub u8);
 
 macro_rules! reg {
     ($($s:ty => $reg:expr),*) => {
@@ -466,5 +533,40 @@ reg! {
     Rxb0Ctrl => Register::RXB0CTRL,
     Rxb1Ctrl => Register::RXB1CTRL,
     Tec => Register::TEC,
-    Rec => Register::REC
+    Rec => Register::REC,
+    Eflg => Register::EFLG
+    // Status => Register::TEC
+}
+
+impl Reg<18> for Status {
+    const ADDRESSES: [Register; 18] = [
+        Register::TEC,
+        Register::REC,
+        Register::XX,
+        Register::XY,
+        Register::RXM0SIDH,
+        Register::RXM0SIDL,
+        Register::RXM0EID8,
+        Register::RXM0EID0,
+        Register::RXM1SIDH,
+        Register::RXM1SIDL,
+        Register::RXM1EID8,
+        Register::RXM1EID0,
+        Register::CNF3,
+        Register::CNF2,
+        Register::CNF1,
+        Register::CANINTE,
+        Register::CANINTF,
+        Register::EFLG,
+    ];
+
+    #[inline]
+    fn read(content: [u8; 18]) -> Self {
+        Self::from_bytes(content)
+    }
+
+    #[inline]
+    fn write(self) -> [u8; 18] {
+        self.into_bytes()
+    }
 }

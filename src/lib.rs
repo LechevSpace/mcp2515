@@ -35,6 +35,10 @@ use crate::{
     },
 };
 
+#[cfg(all(feature = "async", feature = "blocking"))]
+compile_error!("`async` and `blocking` cannot be enabled at the same time");
+
+
 #[repr(u8)]
 enum Instruction {
     Write = 0x2,
@@ -794,8 +798,8 @@ pub trait Can {
 
     /// Puts a frame in the transmit buffer. Waits until space is available in
     /// the transmit buffer.
-    async fn transmit(&mut self, frame: &Self::Frame) -> Result<(), Self::Error>;
+    fn transmit(&mut self, frame: &Self::Frame) -> impl core::future::Future<Output = Result<(), Self::Error>> + Send;
 
     /// Waits until a frame was received or an error occured.
-    async fn receive(&mut self) -> Result<Self::Frame, Self::Error>;
+    fn receive(&mut self) -> impl core::future::Future<Output = Result<Self::Frame, Self::Error>> + Send;
 }

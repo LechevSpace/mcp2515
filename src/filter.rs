@@ -7,7 +7,7 @@ use crate::regs::Register;
 ///
 /// Occupies 4 registers (SIDH, SIDL, EID8 and EID0).
 #[bitfield]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, BitfieldSpecifier)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Specifier)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[cfg_attr(feature = "ufmt", derive(ufmt::derive::uDebug))]
 pub struct RxFilterReg {
@@ -49,7 +49,7 @@ impl RxFilterReg {
 ///
 /// Occupies 4 registers (SIDH, SIDL, EID8 and EID0).
 #[bitfield]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, BitfieldSpecifier)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Specifier)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[cfg_attr(feature = "ufmt", derive(ufmt::derive::uDebug))]
 pub struct RxMaskReg {
