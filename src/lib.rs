@@ -1,5 +1,8 @@
 #![no_std]
 
+#[cfg(all(feature = "async", feature = "blocking"))]
+compiler_error!("You need to select either `blocking` or `async` feature, not both.");
+
 pub mod buffer;
 pub mod error;
 pub mod filter;
